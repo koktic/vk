@@ -13,9 +13,17 @@
         #vk-auth-container {
             margin: 30px auto;
             width: 200px;
+            min-height: 40px;
+        }
+        .error {
+            color: red;
         }
         .loading {
-            color: #888;
+            color: #777;
+        }
+        /* Стили для кнопки VK ID */
+        .VkIdWebSdk__button {
+            margin: 0 auto;
         }
     </style>
 </head>
@@ -23,36 +31,33 @@
     <h1>Авторизация через VK ID</h1>
     
     <div id="vk-auth-container">
-        <p class="loading">Загрузка кнопки VK ID...</p>
+        <p class="loading">Загрузка кнопки авторизации...</p>
     </div>
 
-    <!-- Подключаем SDK -->
-    <script src="https://unpkg.com/@vkid/sdk@3.0.0/dist-sdk/umd/index.js"></script>
-    
     <script>
-        // Ждем полной загрузки страницы и SDK
-        window.addEventListener('load', function() {
-            const authContainer = document.getElementById('vk-auth-container');
+        function initVKAuth() {
+            const container = document.getElementById('vk-auth-container');
             
+            // 1. Проверяем загрузился ли SDK
             if (!window.VKID) {
-                authContainer.innerHTML = '<p style="color:red">Не удалось загрузить VKID SDK</p>';
+                container.innerHTML = '<p class="error">Ошибка: VKID SDK не загружен</p>';
                 return;
             }
 
+            // 2. Инициализация
             try {
-                // Инициализация
                 VKID.Config.init({
                     app: 53610559, // Ваш APP_ID
-                    redirectUrl: window.location.origin + '/auth', // Автоматический URL
-                    responseMode: VKID.ConfigResponseMode.Query,
+                    redirectUrl: window.location.href, // Текущий URL
+                    responseMode: 'query',
                     scope: ''
                 });
 
-                // Создаем кнопку
+                // 3. Создаем кнопку
                 const oAuth = new VKID.OAuthList();
                 
                 oAuth.render({
-                    container: authContainer,
+                    container: container,
                     scheme: 'dark',
                     styles: {
                         borderRadius: 27,
@@ -61,15 +66,35 @@
                     oauthList: ['vkid']
                 })
                 .on(VKID.WidgetEvents.ERROR, function(error) {
+                    container.innerHTML = '<p class="error">Ошибка при создании кнопки</p>';
                     console.error('VKID Error:', error);
-                    authContainer.innerHTML = '<p style="color:red">Ошибка загрузки кнопки</p>';
                 });
 
             } catch (e) {
-                console.error('Initialization error:', e);
-                authContainer.innerHTML = '<p style="color:red">Ошибка инициализации</p>';
+                container.innerHTML = '<p class="error">Ошибка инициализации</p>';
+                console.error('Init error:', e);
             }
-        });
+        }
+
+        // Альтернативная загрузка SDK если основной способ не сработал
+        function loadSDK() {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/@vkid/sdk@3.0.0/dist-sdk/umd/index.js';
+            script.onload = initVKAuth;
+            script.onerror = function() {
+                document.getElementById('vk-auth-container').innerHTML = 
+                    '<p class="error">Не удалось загрузить VKID SDK</p>';
+            };
+            document.head.appendChild(script);
+        }
+
+        // Пытаемся инициализировать сразу, если SDK уже есть
+        if (window.VKID) {
+            initVKAuth();
+        } else {
+            // Если SDK нет - загружаем его
+            loadSDK();
+        }
     </script>
 </body>
 </html>
