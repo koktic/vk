@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VK Auth</title>
+    <script src="https://unpkg.com/@vkid/sdk@3.0.0/dist-sdk/umd/index.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        #vk-auth-container {
+            margin: 30px 0;
+        }
+        button {
+            background: #0077FF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0066DD;
+        }
+    </style>
+</head>
+<body>
+    <h1>Авторизация через VK ID</h1>
+    
+    <div id="vk-auth-container"></div>
+    
+    <div id="user-info" style="display: none;">
+        <h2>Вы авторизованы!</h2>
+        <p id="user-data"></p>
+        <button id="logout-btn">Выйти</button>
+    </div>
+
+    <script>
+        // Проверяем есть ли сохраненный пользователь
+        const savedUser = localStorage.getItem('vk_user');
+        if (savedUser) {
+            showUserInfo(JSON.parse(savedUser));
+        } else {
+            initVKID();
+        }
+
+        // Инициализация VKID SDK
+        function initVKID() {
+            if (!window.VKID) {
+                console.error('VKID SDK не загружен');
+                return;
+            }
+
+            VKID.Config.init({
+                app: 53610559, // Ваш APP_ID
+                redirectUrl: window.location.href,
+                responseMode: "query",
+                scope: "friends,email"
+            });
+
+            const oAuth = new VKID.OAuthList();
+            
+            oAuth.render({
+                container: document.getElementById('vk-auth-container'),
+                scheme: 'dark',
+                styles: {
+                    borderRadius: 27,
+                    height: 32
+                },
+                oauthList: ['vkid']
+            })
+            .on(VKID.WidgetEvents.ERROR, handleAuthError)
+            .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS, handleAuthSuccess);
+        }
+
+        // Обработка успешной авторизации
+        function handleAuthSuccess(payload) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const payloadParam = urlParams.get('payload');
+            
+            if (payloadParam) {
+                try {
+                    const userData = JSON.parse(decodeURIComponent(payloadParam));
+                    showUserInfo(userData.user);
+                    localStorage.setItem('vk_user', JSON.stringify(userData.user));
+                    
+                    // Очищаем URL от параметров
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (e) {
+                    console.error('Ошибка обработки payload:', e);
+                }
+            }
+        }
+
+        // Показываем информацию о пользователе
+        function showUserInfo(user) {
+            document.getElementById('vk-auth-container').style.display = 'none';
+            document.getElementById('user-info').style.display = 'block';
+            document.getElementById('user-data').textContent = `ID: ${user.id}`;
+            
+            // Обработчик кнопки выхода
+            document.getElementById('logout-btn').onclick = function() {
+                localStorage.removeItem('vk_user');
+                window.location.href = window.location.pathname;
+            };
+        }
+
+        // Обработка ошибок
+        function handleAuthError(error) {
+            console.error('Ошибка авторизации:', error);
+            alert('Произошла ошибка при авторизации. Пожалуйста, попробуйте снова.');
+        }
+
+        // Проверяем параметры URL при загрузке
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const payload = urlParams.get('payload');
+            
+            if (payload && !savedUser) {
+                handleAuthSuccess({});
+            }
+        };
+    </script>
+</body>
+</html>
