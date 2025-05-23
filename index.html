@@ -7,93 +7,37 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
             text-align: center;
+            padding: 50px;
         }
-        #vk-auth-container {
-            margin: 30px 0;
+        #status {
+            margin: 20px 0;
+            color: #666;
+        }
+        #vk-button-container {
+            margin: 30px auto;
+            width: 200px;
+            min-height: 40px;
         }
         #user-info {
             display: none;
-            margin-top: 20px;
-            padding: 20px;
-            background: #f5f5f5;
-            border-radius: 8px;
+            margin-top: 30px;
         }
         #user-avatar {
             width: 100px;
             height: 100px;
             border-radius: 50%;
             object-fit: cover;
-            margin-bottom: 10px;
         }
-        button {
-            background: #0077ff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-top: 15px;
-        }
-        button:hover {
-            background: #0066dd;
+        .error {
+            color: red;
         }
     </style>
 </head>
 <body>
     <h1>Авторизация через VK ID</h1>
-    <div>
-  <script src="https://unpkg.com/@vkid/sdk@<3.0.0/dist-sdk/umd/index.js"></script>
-  <script type="text/javascript">
-    if ('VKIDSDK' in window) {
-      const VKID = window.VKIDSDK;
-
-      VKID.Config.init({
-        app: 53610559,
-        redirectUrl: 'https://example.com/auth',
-        responseMode: VKID.ConfigResponseMode.Callback,
-        source: VKID.ConfigSource.LOWCODE,
-        scope: '', // Заполните нужными доступами по необходимости
-      });
-
-      const oAuth = new VKID.OAuthList();
-
-      oAuth.render({
-        container: document.currentScript.parentElement,
-        scheme: 'dark',
-        styles: {
-          borderRadius: 27,
-          height: 32
-        },
-        oauthList: [
-          'vkid'
-        ]
-      })
-      .on(VKID.WidgetEvents.ERROR, vkidOnError)
-      .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS, function (payload) {
-        const code = payload.code;
-        const deviceId = payload.device_id;
-
-        VKID.Auth.exchangeCode(code, deviceId)
-          .then(vkidOnSuccess)
-          .catch(vkidOnError);
-      });
-    
-      function vkidOnSuccess(data) {
-        // Обработка полученного результата
-      }
-    
-      function vkidOnError(error) {
-        // Обработка ошибки
-      }
-    }
-  </script>
-</div>
-    <div id="vk-auth-container"></div>
+    <div id="status">Загрузка...</div>
+    <div id="vk-button-container"></div>
     
     <div id="user-info">
         <img id="user-avatar" src="" alt="Аватар">
@@ -102,90 +46,99 @@
         <button id="logout-btn">Выйти</button>
     </div>
 
-    <script src="https://unpkg.com/@vkid/sdk@3.0.0/dist-sdk/umd/index.js"></script>
     <script>
-        // Проверяем есть ли сохраненный пользователь
+        // 1. Проверяем наличие сохраненного пользователя
         const savedUser = localStorage.getItem('vk_user');
         if (savedUser) {
-            showUserInfo(JSON.parse(savedUser));
+            showUser(JSON.parse(savedUser));
         }
 
-        // Инициализация VKID SDK
-        function initVKID() {
+        // 2. Загружаем SDK
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@vkid/sdk@3.0.0/dist-sdk/umd/index.js';
+        script.onload = initVKAuth;
+        script.onerror = function() {
+            document.getElementById('status').className = 'error';
+            document.getElementById('status').textContent = 'Ошибка загрузки VKID SDK';
+        };
+        document.head.appendChild(script);
+
+        // 3. Инициализация VK Auth
+        function initVKAuth() {
+            const statusEl = document.getElementById('status');
+            
             if (!window.VKID) {
-                console.error('VKID SDK не загружен');
+                statusEl.className = 'error';
+                statusEl.textContent = 'VKID SDK не доступен';
                 return;
             }
 
-            VKID.Config.init({
-                app: 53610559, // Ваш APP_ID
-                redirectUrl: window.location.href, // Текущий URL
-                responseMode: "query",
-                scope: "friends,photos" // Добавлены права для доступа к аватарке
-            });
+            try {
+                statusEl.textContent = 'Инициализация...';
+                
+                VKID.Config.init({
+                    app: 53610559,
+                    redirectUrl: window.location.href,
+                    responseMode: "query",
+                    scope: "friends,photos"
+                });
 
-            const oAuth = new VKID.OAuthList();
-            
-            oAuth.render({
-                container: document.getElementById('vk-auth-container'),
-                scheme: 'dark',
-                styles: {
-                    borderRadius: 27,
-                    height: 32
-                },
-                oauthList: ['vkid']
-            })
-            .on(VKID.WidgetEvents.ERROR, handleAuthError)
-            .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS, handleAuthSuccess);
-        }
-
-        // Обработка успешной авторизации
-        function handleAuthSuccess(payload) {
-            const code = payload.code;
-            const deviceId = payload.device_id;
-
-            VKID.Auth.exchangeCode(code, deviceId)
-                .then(data => {
-                    // Получаем данные пользователя
-                    const user = {
-                        id: data.user.id,
-                        firstName: data.user.first_name,
-                        lastName: data.user.last_name,
-                        avatar: data.user.photo_200 || data.user.photo_100
-                    };
-                    
-                    // Сохраняем и показываем
-                    localStorage.setItem('vk_user', JSON.stringify(user));
-                    showUserInfo(user);
+                statusEl.textContent = 'Готово к авторизации';
+                
+                const oAuth = new VKID.OAuthList();
+                oAuth.render({
+                    container: document.getElementById('vk-button-container'),
+                    scheme: 'dark',
+                    oauthList: ['vkid']
                 })
-                .catch(handleAuthError);
+                .on(VKID.WidgetEvents.ERROR, function(error) {
+                    statusEl.className = 'error';
+                    statusEl.textContent = 'Ошибка создания кнопки';
+                    console.error('VKID Error:', error);
+                })
+                .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS, function(payload) {
+                    statusEl.textContent = 'Авторизация...';
+                    VKID.Auth.exchangeCode(payload.code, payload.device_id)
+                        .then(function(data) {
+                            const user = {
+                                id: data.user.id,
+                                firstName: data.user.first_name,
+                                lastName: data.user.last_name,
+                                avatar: data.user.photo_200 || data.user.photo_100 || ''
+                            };
+                            localStorage.setItem('vk_user', JSON.stringify(user));
+                            showUser(user);
+                            statusEl.textContent = 'Авторизация успешна';
+                        })
+                        .catch(function(error) {
+                            statusEl.className = 'error';
+                            statusEl.textContent = 'Ошибка авторизации';
+                            console.error('Auth error:', error);
+                        });
+                });
+
+            } catch (e) {
+                statusEl.className = 'error';
+                statusEl.textContent = 'Ошибка инициализации';
+                console.error('Init error:', e);
+            }
         }
 
-        // Показываем информацию о пользователе
-        function showUserInfo(user) {
-            document.getElementById('vk-auth-container').style.display = 'none';
-            document.getElementById('user-info').style.display = 'block';
+        // 4. Показ информации о пользователе
+        function showUser(user) {
+            document.getElementById('vk-button-container').style.display = 'none';
+            const userInfo = document.getElementById('user-info');
+            userInfo.style.display = 'block';
             
-            // Заполняем данные
-            document.getElementById('user-avatar').src = user.avatar;
+            document.getElementById('user-avatar').src = user.avatar || 'https://vk.com/images/camera_200.png';
             document.getElementById('user-name').textContent = `${user.firstName} ${user.lastName}`;
             document.getElementById('user-id').textContent = user.id;
             
-            // Обработчик кнопки выхода
             document.getElementById('logout-btn').onclick = function() {
                 localStorage.removeItem('vk_user');
                 window.location.reload();
             };
         }
-
-        // Обработка ошибок
-        function handleAuthError(error) {
-            console.error('Ошибка авторизации:', error);
-            alert('Произошла ошибка при авторизации. Пожалуйста, попробуйте снова.');
-        }
-
-        // Инициализируем при загрузке
-        window.addEventListener('load', initVKID);
     </script>
 </body>
 </html>
