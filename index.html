@@ -7,55 +7,52 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f5f5f5;
-        }
-        .auth-container {
             text-align: center;
-            padding: 30px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 50px;
         }
-        h1 {
-            color: #333;
-            margin-bottom: 30px;
+        #vk-auth-container {
+            margin: 30px auto;
+            width: 200px;
         }
-        #vk-auth-button {
-            margin-top: 20px;
+        .loading {
+            color: #888;
         }
     </style>
 </head>
 <body>
-    <div class="auth-container">
-        <h1>Авторизация через VK ID</h1>
-        <div id="vk-auth-button"></div>
+    <h1>Авторизация через VK ID</h1>
+    
+    <div id="vk-auth-container">
+        <p class="loading">Загрузка кнопки VK ID...</p>
     </div>
 
-    <!-- VKID SDK -->
+    <!-- Подключаем SDK -->
     <script src="https://unpkg.com/@vkid/sdk@3.0.0/dist-sdk/umd/index.js"></script>
+    
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            if ('VKID' in window) {
-                const VKID = window.VKID;
-                
-                // Инициализация SDK
+        // Ждем полной загрузки страницы и SDK
+        window.addEventListener('load', function() {
+            const authContainer = document.getElementById('vk-auth-container');
+            
+            if (!window.VKID) {
+                authContainer.innerHTML = '<p style="color:red">Не удалось загрузить VKID SDK</p>';
+                return;
+            }
+
+            try {
+                // Инициализация
                 VKID.Config.init({
                     app: 53610559, // Ваш APP_ID
-                    redirectUrl: 'https://vk-topaz.vercel.app/auth', // Ваш URL
+                    redirectUrl: window.location.origin + '/auth', // Автоматический URL
                     responseMode: VKID.ConfigResponseMode.Query,
-                    scope: '' // Нужные разрешения
+                    scope: ''
                 });
 
                 // Создаем кнопку
                 const oAuth = new VKID.OAuthList();
                 
                 oAuth.render({
-                    container: document.getElementById('vk-auth-button'),
+                    container: authContainer,
                     scheme: 'dark',
                     styles: {
                         borderRadius: 27,
@@ -64,33 +61,13 @@
                     oauthList: ['vkid']
                 })
                 .on(VKID.WidgetEvents.ERROR, function(error) {
-                    console.error('Ошибка авторизации:', error);
-                    alert('Произошла ошибка при авторизации');
-                })
-                .on(VKID.OAuthListInternalEvents.LOGIN_SUCCESS, function(payload) {
-                    const code = payload.code;
-                    const deviceId = payload.device_id;
-                    
-                    // Обмен кода на токен
-                    VKID.Auth.exchangeCode(code, deviceId)
-                        .then(function(data) {
-                            // Успешная авторизация
-                            console.log('Авторизация успешна:', data);
-                            alert('Вы успешно авторизовались! ID: ' + data.user.id);
-                            
-                            // Здесь можно сохранить данные пользователя
-                            localStorage.setItem('vk_user', JSON.stringify(data.user));
-                            
-                            // Перенаправление или другие действия
-                            window.location.href = 'https://vk-topaz.vercel.app';
-                        })
-                        .catch(function(error) {
-                            console.error('Ошибка обмена кода:', error);
-                            alert('Ошибка при завершении авторизации');
-                        });
+                    console.error('VKID Error:', error);
+                    authContainer.innerHTML = '<p style="color:red">Ошибка загрузки кнопки</p>';
                 });
-            } else {
-                console.error('VKID SDK не загружен');
+
+            } catch (e) {
+                console.error('Initialization error:', e);
+                authContainer.innerHTML = '<p style="color:red">Ошибка инициализации</p>';
             }
         });
     </script>
